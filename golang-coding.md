@@ -31,6 +31,72 @@ func Compile(str string) (regexp *Regexp, err error) {
 type Request struct { ...
 ```
 
+#### 1.3 详细注释
+
+处理复杂逻辑时需要详细注释，可在package内创建doc.go详细描述。 如src/strconv/doc.go
+
+```go
+// Copyright 2015 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Package strconv implements conversions to and from string representations
+// of basic data types.
+//
+// Numeric Conversions
+//
+// The most common numeric conversions are Atoi (string to int) and Itoa (int to string).
+//
+//	i, err := strconv.Atoi("-42")
+//	s := strconv.Itoa(-42)
+//
+// These assume decimal and the Go int type.
+//
+// ParseBool, ParseFloat, ParseInt, and ParseUint convert strings to values:
+//
+//	b, err := strconv.ParseBool("true")
+//	f, err := strconv.ParseFloat("3.1415", 64)
+//	i, err := strconv.ParseInt("-42", 10, 64)
+//	u, err := strconv.ParseUint("42", 10, 64)
+//
+// The parse functions return the widest type (float64, int64, and uint64),
+// but if the size argument specifies a narrower width the result can be
+// converted to that narrower type without data loss:
+//
+//	s := "2147483647" // biggest int32
+//	i64, err := strconv.ParseInt(s, 10, 32)
+//	...
+//	i := int32(i64)
+//
+// FormatBool, FormatFloat, FormatInt, and FormatUint convert values to strings:
+//
+//	s := strconv.FormatBool(true)
+//	s := strconv.FormatFloat(3.1415, 'E', -1, 64)
+//	s := strconv.FormatInt(-42, 16)
+//	s := strconv.FormatUint(42, 16)
+//
+// AppendBool, AppendFloat, AppendInt, and AppendUint are similar but
+// append the formatted value to a destination slice.
+//
+// String Conversions
+//
+// Quote and QuoteToASCII convert strings to quoted Go string literals.
+// The latter guarantees that the result is an ASCII string, by escaping
+// any non-ASCII Unicode with \u:
+//
+//	q := strconv.Quote("Hello, 世界")
+//	q := strconv.QuoteToASCII("Hello, 世界")
+//
+// QuoteRune and QuoteRuneToASCII are similar but accept runes and
+// return quoted Go rune literals.
+//
+// Unquote and UnquoteChar unquote Go string and rune literals.
+//
+package strconv
+```
+
+
+
 ### 2、命名
 
 使用短命名，因为长名字并不会使得事物更易读，文档注释会比格外长的名字更有用。 需要导出的任何类型必须以大写字母开头。
@@ -196,19 +262,16 @@ func nextInt(b []byte, pos int) (value, nextPos int, err error) {
 
 不要在逻辑代码中使用panic error作为函数的值返回,必须对error进行处理。一般会根据业务情况对error进行错误包装 (Error Wrapping)，很多场景需要包含更多信息如：code，cause，metadata等。
 
-不推荐：
-
 ```go
+// Bad
+
 if err != nil {
     // error handling
 } else {
     // normal code
 }
-```
 
-好的方式：
-
-```go
+// Good
 if err != nil {
     // error handling
     return // or continue, etc.
@@ -222,13 +285,14 @@ if err != nil {
 // use x
 ```
 
+
+
 ### 7.使用defer释放资源
 
 使用 defer 释放资源，诸如文件和锁。
 
-不推荐
-
 ```go
+// Bad
 p.Lock()
 if p.count < 10 {
   p.Unlock()
@@ -242,9 +306,8 @@ p.Unlock()
 return newCount
 
 // 当有多个 return 分支时，很容易遗忘 unlock
-```
 
-```go
+// Good
 p.Lock()
 defer p.Unlock()
 
@@ -255,7 +318,6 @@ if p.count < 10 {
 p.count++
 return p.count
 
-// 更可读
 ```
 
 Defer 的开销非常小，只有在您可以证明函数执行时间处于纳秒级的程度时，才应避免这样做。使用 defer 提升可读性是值得的，因为使用它们的成本微不足道。尤其适用于那些不仅仅是简单内存访问的较大的方法，在这些方法中其他计算的资源消耗远超过 `defer.`
@@ -271,6 +333,8 @@ Go程序使用[`os.Exit`](https://golang.org/pkg/os/#Exit) 或者 [`log.Fatal*`]
 不推荐
 
 ```go
+// Bad
+
 func main() {
   body := readFile(path)
   fmt.Println(body)
@@ -286,13 +350,8 @@ func readFile(path string) string {
   }
   return string(b)
 }
-```
 
-
-
-推荐
-
-```go
+// Good
 func main() {
   body, err := readFile(path)
   if err != nil {
@@ -324,9 +383,9 @@ func readFile(path string) (string, error) {
 
 如果可能的话，你的`main（）`函数中**最多一次** 调用 `os.Exit`或者`log.Fatal`。如果有多个错误场景停止程序执行，请将该逻辑放在单独的函数下并从中返回错误。 这会缩短 `main()`函数，并将所有关键业务逻辑放入一个单独的、可测试的函数中。
 
-不推荐
-
 ```go
+// Bad
+
 package main
 func main() {
   args := os.Args[1:]
@@ -347,13 +406,9 @@ func main() {
   }
   // ...
 }
-```
 
+// Good
 
-
-推荐
-
-```go
 package main
 func main() {
   if err := run(); err != nil {
@@ -377,6 +432,7 @@ func run() error {
   }
   // ...
 }
+
 ```
 
 
@@ -398,27 +454,78 @@ func run() error {
 
 Go 语言支持将相似的声明放在一个组内。
 
-| Bad                     | Good                   |
-| ----------------------- | ---------------------- |
-| `import "a" import "b"` | `import (  "a"  "b" )` |
+```go
+// Bad
+import "a"
+import "b"
+
+// Good
+import (  "a"  "b" )
+```
 
 这同样适用于常量、变量和类型声明：
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `const a = 1 const b = 2 var a = 1 var b = 2 type Area float64 type Volume float64` | `const (  a = 1  b = 2 ) var (  a = 1  b = 2 ) type (  Area float64  Volume float64 )` |
+```go
+// Bad
+const a = 1 
+const b = 2 
+var a = 1 
+var b = 2 
+type Area float64 
+type Volume float64
+
+// Good
+const (  a = 1  b = 2 )
+var (  a = 1  b = 2 )
+type (  Area float64  Volume float64 )
+```
+
+
 
 仅将相关的声明放在一组。不要将不相关的声明放在一组。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `type Operation int const (  Add Operation = iota + 1  Subtract  Multiply  EnvVar = "MY_ENV" )` | `type Operation int const (  Add Operation = iota + 1  Subtract  Multiply ) const EnvVar = "MY_ENV"` |
+```go
+// Bad
+type Operation int 
+const (  Add Operation = iota + 1  
+         Subtract
+         Multiply  
+         EnvVar = "MY_ENV" )
+
+// Good
+type Operation int 
+const (  Add Operation = iota + 1  
+         Subtract 
+         Multiply )
+const EnvVar = "MY_ENV"
+
+```
+
+
 
 分组使用的位置没有限制，例如：你可以在函数内部使用它们：
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `func f() string {  var red = color.New(0xff0000)  var green = color.New(0x00ff00)  var blue = color.New(0x0000ff)   ... }` | `func f() string {  var (    red   = color.New(0xff0000)    green = color.New(0x00ff00)    blue  = color.New(0x0000ff)  )   ... }` |
+```go
+// Bad
+func f() string {  
+  var red = color.New(0xff0000)  
+  var green = color.New(0x00ff00)  
+  var blue = color.New(0x0000ff)
+  ... 
+}
+
+// Good
+func f() string {  
+  var (
+    red   = color.New(0xff0000)
+    green = color.New(0x00ff00)
+    blue  = color.New(0x0000ff)  
+  )
+  ... 
+}
+```
+
+
 
 ##### 2.1.2 import 分组
 
@@ -429,9 +536,26 @@ Go 语言支持将相似的声明放在一个组内。
 
 默认情况下，这是 goimports 应用的分组。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `import (  "fmt"  "os"  "go.uber.org/atomic"  "golang.org/x/sync/errgroup" )` | `import (  "fmt"  "os"   "go.uber.org/atomic"  "golang.org/x/sync/errgroup" )` |
+```go
+// Bad
+import (
+          "fmt"
+          "os"
+          "go.uber.org/atomic"
+          "golang.org/x/sync/errgroup"
+)
+
+// Good
+import ( 
+          "fmt"
+          "os"
+          
+          "go.uber.org/atomic"
+          "golang.org/x/sync/errgroup"
+)
+```
+
+
 
 ##### 2.1.3 包名
 
@@ -464,9 +588,26 @@ import (
 
 在所有其他情况下，除非导入之间有直接冲突，否则应避免导入别名。
 
-| Bad                                                       | Good                                                         |
-| --------------------------------------------------------- | ------------------------------------------------------------ |
-| `import (  "fmt"  "os"   nettrace "golang.net/x/trace" )` | `import (  "fmt"  "os"  "runtime/trace"   nettrace "golang.net/x/trace" )` |
+```go
+// Bad
+import (
+   "fmt"
+   "os"
+  
+    nettrace "golang.net/x/trace"
+)
+
+// Good
+import (
+  "fmt"
+  "os"
+  "runtime/trace"
+  
+  nettrace "golang.net/x/trace"
+)
+```
+
+
 
 ##### 2.1.6 函数分组与顺序
 
@@ -479,17 +620,79 @@ import (
 
 由于函数是按接收者分组的，因此普通工具函数应在文件末尾出现。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `func (s *something) Cost() {  return calcCost(s.weights) } type something struct{ ... } func calcCost(n []int) int {...} func (s *something) Stop() {...} func newSomething() *something {    return &something{} }` | `type something struct{ ... } func newSomething() *something {    return &something{} } func (s *something) Cost() {  return calcCost(s.weights) } func (s *something) Stop() {...} func calcCost(n []int) int {...}` |
+```go
+// Bad
+func (s *something) Cost() 
+{  
+  return calcCost(s.weights)
+} 
+
+type something struct{ ... } 
+
+func calcCost(n []int) int {...} 
+
+func (s *something) Stop() {...} 
+
+func newSomething() *something {
+  return &something{} 
+}
+
+// Good
+
+type something struct{ ... }
+
+func newSomething() *something {
+  return &something{}
+}
+
+func (s *something) Cost() {
+  return calcCost(s.weights)
+} 
+
+func (s *something) Stop() {...}
+
+func calcCost(n []int) int {...}
+```
+
+
 
 ##### 2.1.7 减少嵌套
 
 代码应通过尽可能先处理错误情况/特殊情况并尽早返回或继续循环来减少嵌套。减少嵌套多个级别的代码的代码量。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `for _, v := range data {  if v.F1 == 1 {    v = process(v)    if err := v.Call(); err == nil {      v.Send()    } else {      return err    }  } else {    log.Printf("Invalid v: %v", v)  } }` | `for _, v := range data {  if v.F1 != 1 {    log.Printf("Invalid v: %v", v)    continue  }   v = process(v)  if err := v.Call(); err != nil {    return err  }  v.Send() }` |
+
+
+```go
+// Bad
+
+for _, v := range data {
+if v.F1 == 1 {
+  v = process(v)
+  if err := v.Call(); err == nil {
+    v.Send()
+  } else { 
+    return err
+  }
+} else {    
+  log.Printf("Invalid v: %v", v) 
+} 
+}
+
+// Good
+for _, v := range data {  
+  if v.F1 != 1 {    
+    log.Printf("Invalid v: %v", v)    
+    continue 
+  }   
+  v = process(v)  
+  if err := v.Call(); err != nil {    
+    return err  
+  }  
+  v.Send() 
+}
+```
+
+
 
 ##### 2.1.8 不必要的 else
 
@@ -503,9 +706,21 @@ import (
 
 在顶层，使用标准`var`关键字。请勿指定类型，除非它与表达式的类型不同。
 
-| Bad                                                  | Good                                                         |
-| ---------------------------------------------------- | ------------------------------------------------------------ |
-| `var _s string = F() func F() string { return "A" }` | `var _s = F() // 由于 F 已经明确了返回一个字符串类型，因此我们没有必要显式指定_s 的类型 // 还是那种类型 func F() string { return "A" }` |
+```go
+// Bad
+
+var _s string = F()
+func F() string { return "A" }
+
+//Good
+var _s = F()
+// Since F already states that it returns a string, we don't need to specify
+// the type again.
+
+func F() string { return "A" }
+```
+
+
 
 如果表达式的类型与所需的类型不完全匹配，请指定类型。
 
@@ -528,9 +743,40 @@ var _e error = F()
 
 基本依据：顶级变量和常量具有包范围作用域。使用通用名称可能很容易在其他文件中意外使用错误的值。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `// foo.go const (  defaultPort = 8080  defaultUser = "user" ) // bar.go func Bar() {  defaultPort := 9090  ...  fmt.Println("Default port", defaultPort)   // We will not see a compile error if the first line of  // Bar() is deleted. }` | `// foo.go const (  _defaultPort = 8080  _defaultUser = "user" )` |
+```go
+// Bad
+
+// foo.go
+
+const (
+  defaultPort = 8080
+  defaultUser = "user"
+)
+
+// bar.go
+
+func Bar() {
+  defaultPort := 9090
+  ...
+  fmt.Println("Default port", defaultPort)
+
+  // We will not see a compile error if the first line of
+  // Bar() is deleted.
+}
+
+
+//Good
+// foo.go
+
+const (
+  _defaultPort = 8080
+  _defaultUser = "user"
+)
+
+
+```
+
+
 
 ##### 2.1.10 结构体中的嵌入
 
@@ -558,11 +804,84 @@ var _e error = F()
 
 简单地说，有意识地和有目的地嵌入。一种很好的测试体验是， "是否所有这些导出的内部方法/字段都将直接添加到外部类型" 如果答案是`some`或`no`，不要嵌入内部类型-而是使用字段。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `type A struct {    // Bad: A.Lock() and A.Unlock() 现在可用    // 不提供任何功能性好处，并允许用户控制有关A的内部细节。    sync.Mutex }` | `type countingWriteCloser struct {    // Good: Write() 在外层提供用于特定目的，    // 并且委托工作到内部类型的Write()中。    io.WriteCloser    count int } func (w *countingWriteCloser) Write(bs []byte) (int, error) {    w.count += len(bs)    return w.WriteCloser.Write(bs) }` |
-| `type Book struct {    // Bad: 指针更改零值的有用性    io.ReadWriter    // other fields } // later var b Book b.Read(...)  // panic: nil pointer b.String()   // panic: nil pointer b.Write(...) // panic: nil pointer` | `type Book struct {    // Good: 有用的零值    bytes.Buffer    // other fields } // later var b Book b.Read(...)  // ok b.String()   // ok b.Write(...) // ok` |
-| `type Client struct {    sync.Mutex    sync.WaitGroup    bytes.Buffer    url.URL }` | `type Client struct {    mtx sync.Mutex    wg  sync.WaitGroup    buf bytes.Buffer    url url.URL }` |
+
+
+```go
+// Bad
+type A struct {
+    // Bad: A.Lock() and A.Unlock() are
+    //      now available, provide no
+    //      functional benefit, and allow
+    //      users to control details about
+    //      the internals of A.
+    sync.Mutex
+}
+
+//Good
+type countingWriteCloser struct {
+    // Good: Write() is provided at this
+    //       outer layer for a specific
+    //       purpose, and delegates work
+    //       to the inner type's Write().
+    io.WriteCloser
+
+    count int
+}
+
+func (w *countingWriteCloser) Write(bs []byte) (int, error) {
+    w.count += len(bs)
+    return w.WriteCloser.Write(bs)
+}
+
+// Bad
+type Book struct {
+    // Bad: pointer changes zero value usefulness
+    io.ReadWriter
+
+    // other fields
+}
+
+// later
+
+var b Book
+b.Read(...)  // panic: nil pointer
+b.String()   // panic: nil pointer
+b.Write(...) // panic: nil pointer
+
+// Good
+type Book struct {
+    // Good: has useful zero value
+    bytes.Buffer
+
+    // other fields
+}
+
+// later
+
+var b Book
+b.Read(...)  // ok
+b.String()   // ok
+b.Write(...) // ok
+
+
+// Bad
+type Client struct {
+    sync.Mutex
+    sync.WaitGroup
+    bytes.Buffer
+    url.URL
+}
+
+// Good
+type Client struct {
+    mtx sync.Mutex
+    wg  sync.WaitGroup
+    buf bytes.Buffer
+    url url.URL
+}
+```
+
+
 
 ##### 2.1.11 使用字段名初始化结构体
 
@@ -594,9 +913,32 @@ tests := []struct{
 
 但是，在某些情况下，`var` 使用关键字时默认值会更清晰。例如，声明空切片。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `func f(list []int) {  filtered := []int{}  for _, v := range list {    if v > 10 {      filtered = append(filtered, v)    }  } }` | `func f(list []int) {  var filtered []int  for _, v := range list {    if v > 10 {      filtered = append(filtered, v)    }  } }` |
+
+
+```go
+// Bad
+
+func f(list []int) {
+  filtered := []int{}
+  for _, v := range list {
+    if v > 10 {
+      filtered = append(filtered, v)
+    }
+  }
+}
+
+// Good
+func f(list []int) {
+  var filtered []int
+  for _, v := range list {
+    if v > 10 {
+      filtered = append(filtered, v)
+    }
+  }
+}
+```
+
+
 
 ##### 2.1.13 nil 是一个有效的 slice
 
@@ -616,9 +958,24 @@ tests := []struct{
 
 - 零值切片（用`var`声明的切片）可立即使用，无需调用`make()`创建。
 
-  | Bad                                                          | Good                                                         |
-  | ------------------------------------------------------------ | ------------------------------------------------------------ |
-  | `nums := []int{} // or, nums := make([]int) if add1 {  nums = append(nums, 1) } if add2 {  nums = append(nums, 2) }` | `var nums []int if add1 {  nums = append(nums, 1) } if add2 {  nums = append(nums, 2) }` |
+  
+  
+  ```go
+  // Bad
+  nums := []int{} // or, nums := make([]int) 
+  
+  if add1 {  nums = append(nums, 1) } 
+  
+  if add2 {  nums = append(nums, 2) }
+  
+  // Good
+  var nums []int 
+  
+  if add1 {  nums = append(nums, 1) } 
+  
+  if add2 {  nums = append(nums, 2) }
+  
+  ```
 
 记住，虽然nil切片是有效的切片，但它不等于长度为0的切片（一个为nil，另一个不是），并且在不同的情况下（例如序列化），这两个切片的处理方式可能不同。
 
@@ -632,9 +989,38 @@ tests := []struct{
 
 如果需要在 if 之外使用函数调用的结果，则不应尝试缩小范围。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `if data, err := ioutil.ReadFile(name); err == nil {  err = cfg.Decode(data)  if err != nil {    return err  }   fmt.Println(cfg)  return nil } else {  return err }` | `data, err := ioutil.ReadFile(name) if err != nil {   return err } if err := cfg.Decode(data); err != nil {  return err } fmt.Println(cfg) return nil` |
+
+
+```go
+// Bad
+if data, err := ioutil.ReadFile(name); err == nil {
+  err = cfg.Decode(data)
+  if err != nil {
+    return err
+  }
+
+  fmt.Println(cfg)
+  return nil
+} else {
+  return err
+}
+
+// Good
+data, err := ioutil.ReadFile(name)
+if err != nil {
+   return err
+}
+
+if err := cfg.Decode(data); err != nil {
+  return err
+}
+
+fmt.Println(cfg)
+return nil
+
+```
+
+
 
 ##### 2.1.15 避免参数语义不明确(Avoid Naked Parameters)
 
@@ -671,9 +1057,9 @@ Go 支持使用 [原始字符串字面值](https://golang.org/ref/spec#raw_strin
 
 可以跨越多行并包含引号。使用这些字符串可以避免更难阅读的手工转义的字符串。
 
-| Bad                                    | Good                                  |
-| -------------------------------------- | ------------------------------------- |
-| `wantError := "unknown name:\"test\""` | `wantError := `unknown error:"test"`` |
+| Bad                                    | Good                                |
+| -------------------------------------- | ----------------------------------- |
+| `wantError := "unknown name:\"test\""` | wantError := `unknown error:"test"` |
 
 ##### 2.1.17 一些初始化例子
 
@@ -741,10 +1127,10 @@ tests := []struct{
 
 对于空 map 请使用 `make(..)` 初始化， 并且 map 是通过编程方式填充的。 这使得 map 初始化在表现上不同于声明，并且它还可以方便地在 make 后添加大小提示。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `var (  // m1 读写安全;  // m2 在写入时会 panic  m1 = map[T1]T2{}  m2 map[T1]T2 )` | `var (  // m1 读写安全;  // m2 在写入时会 panic  m1 = make(map[T1]T2)  m2 map[T1]T2 )` |
-| 声明和初始化看起来非常相似的。                               | 声明和初始化看起来差别非常大。                               |
+| Bad                                                          | Good                                                  |
+| ------------------------------------------------------------ | ----------------------------------------------------- |
+| `var (    m1 = map[T1]T2{}  m2 map[T1]T2 )`                  | `var (   m1 = make(map[T1]T2)  m2 = make(map[T1]T2))` |
+| m1 读写安全;   m2 在写入时会 panic, 声明和初始化看起来非常相似的。 | m1,m2 读写安全; 声明和初始化看起来差别非常大。        |
 
 在尽可能的情况下，请在初始化时提供 map 容量大小，详细请看 [指定Map容量提示](https://github.com/xxjwxc/uber_go_guide_cn#指定Map容量提示)。
 
@@ -770,6 +1156,52 @@ tests := []struct{
 
 
 
+* interface的初始化
+
+在编译时验证接口的符合性。这包括：
+
+1) 将实现特定接口的导出类型作为接口API 的一部分进行检查
+
+2) 实现同一接口的(导出和非导出)类型属于实现类型的集合
+
+3) 任何违反接口合理性检查的场景,都会终止编译,并通知给用户
+
+补充:上面3条是编译器对接口的检查机制, 大体意思是错误使用接口会在编译期报错. 所以可以利用这个机制让部分问题在编译期暴露.
+
+
+
+```go
+// Bad
+type Handler struct {
+  // ...
+}
+
+
+
+func (h *Handler) ServeHTTP(
+  w http.ResponseWriter,
+  r *http.Request,
+) {
+  ...
+}
+
+// Good
+type Handler struct {
+  // ...
+}
+
+var _ http.Handler = (*Handler)(nil)
+
+func (h *Handler) ServeHTTP(
+  w http.ResponseWriter,
+  r *http.Request,
+) {
+  // ...
+}
+```
+
+如果 `*Handler` 与 `http.Handler` 的接口不匹配, 那么语句 `var _ http.Handler = (*Handler)(nil)` 将无法编译通过.
+
 ##### 2.1.18 slice和map的拷贝
 
 slices 和 maps 包含了指向底层数据的指针，因此在需要复制它们时要特别注意。
@@ -778,9 +1210,33 @@ slices 和 maps 包含了指向底层数据的指针，因此在需要复制它�
 
 请记住，当 map 或 slice 作为函数参数传入时，如果您存储了对它们的引用，则用户可以对其进行修改。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `func (d *Driver) SetTrips(trips []Trip) {  d.trips = trips } trips := ... d1.SetTrips(trips) // 你是要修改 d1.trips 吗？ trips[0] = ...` | `func (d *Driver) SetTrips(trips []Trip) {  d.trips = make([]Trip, len(trips))  copy(d.trips, trips) } trips := ... d1.SetTrips(trips) // 这里我们修改 trips[0]，但不会影响到 d1.trips trips[0] = ...` |
+
+
+```go
+// Bad
+
+func (d *Driver) SetTrips(trips []Trip) {
+  d.trips = trips
+}
+
+trips := ...
+d1.SetTrips(trips)
+
+// Did you mean to modify d1.trips?
+trips[0] = ...
+
+// Good
+func (d *Driver) SetTrips(trips []Trip) {
+  d.trips = make([]Trip, len(trips))
+  copy(d.trips, trips)
+}
+
+trips := ...
+d1.SetTrips(trips)
+
+// We can now modify trips[0] without affecting d1.trips.
+trips[0] = ...
+```
 
 
 
@@ -788,9 +1244,45 @@ slices 和 maps 包含了指向底层数据的指针，因此在需要复制它�
 
 同样，请注意用户对暴露内部状态的 map 或 slice 的修改。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `type Stats struct {  mu sync.Mutex   counters map[string]int } // Snapshot 返回当前状态。 func (s *Stats) Snapshot() map[string]int {  s.mu.Lock()  defer s.mu.Unlock()   return s.counters } // snapshot 不再受互斥锁保护 // 因此对 snapshot 的任何访问都将受到数据竞争的影响 // 影响 stats.counters snapshot := stats.Snapshot()` | `type Stats struct {  mu sync.Mutex   counters map[string]int } func (s *Stats) Snapshot() map[string]int {  s.mu.Lock()  defer s.mu.Unlock()   result := make(map[string]int, len(s.counters))  for k, v := range s.counters {    result[k] = v  }  return result } // snapshot 现在是一个拷贝 snapshot := stats.Snapshot()` |
+```go
+// Bad
+type Stats struct {
+  mu sync.Mutex
+  counters map[string]int
+}
+
+// Snapshot returns the current stats.
+func (s *Stats) Snapshot() map[string]int {
+  s.mu.Lock()
+  defer s.mu.Unlock()
+
+  return s.counters
+}
+
+// snapshot is no longer protected by the mutex, so any
+// access to the snapshot is subject to data races.
+snapshot := stats.Snapshot()
+
+// Good
+type Stats struct {
+  mu sync.Mutex
+  counters map[string]int
+}
+
+func (s *Stats) Snapshot() map[string]int {
+  s.mu.Lock()
+  defer s.mu.Unlock()
+
+  result := make(map[string]int, len(s.counters))
+  for k, v := range s.counters {
+    result[k] = v
+  }
+  return result
+}
+
+// Snapshot is now a copy.
+snapshot := stats.Snapshot()
+```
 
 
 
@@ -798,16 +1290,108 @@ slices 和 maps 包含了指向底层数据的指针，因此在需要复制它�
 
 使用选择依赖注入方式避免改变全局变量。 既适用于函数指针又适用于其他值类型
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `// sign.go var _timeNow = time.Now func sign(msg string) string {  now := _timeNow()  return signWithTime(msg, now) }` | `// sign.go type signer struct {  now func() time.Time } func newSigner() *signer {  return &signer{    now: time.Now,  } } func (s *signer) Sign(msg string) string {  now := s.now()  return signWithTime(msg, now) }` |
-| `// sign_test.go func TestSign(t *testing.T) {  oldTimeNow := _timeNow  _timeNow = func() time.Time {    return someFixedTime  }  defer func() { _timeNow = oldTimeNow }()  assert.Equal(t, want, sign(give)) }` | `// sign_test.go func TestSigner(t *testing.T) {  s := newSigner()  s.now = func() time.Time {    return someFixedTime  }  assert.Equal(t, want, s.Sign(give)) }` |
+```go
+// Bad
+
+// sign.go
+
+var _timeNow = time.Now
+
+func sign(msg string) string {
+  now := _timeNow()
+  return signWithTime(msg, now)
+}
+
+// Good 
+
+// sign.go
+
+type signer struct {
+  now func() time.Time
+}
+
+func newSigner() *signer {
+  return &signer{
+    now: time.Now,
+  }
+}
+
+func (s *signer) Sign(msg string) string {
+  now := s.now()
+  return signWithTime(msg, now)
+}
+
+// Bad
+// sign_test.go
+
+func TestSign(t *testing.T) {
+  oldTimeNow := _timeNow
+  _timeNow = func() time.Time {
+    return someFixedTime
+  }
+  defer func() { _timeNow = oldTimeNow }()
+
+  assert.Equal(t, want, sign(give))
+}
+
+// Good
+// sign_test.go
+
+func TestSigner(t *testing.T) {
+  s := newSigner()
+  s.now = func() time.Time {
+    return someFixedTime
+  }
+
+  assert.Equal(t, want, s.Sign(give))
+}
+```
 
 不要使用package内部全局变量
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `type Config struct {     // ... } var _config Config func init() {     // Bad: 基于当前目录     cwd, _ := os.Getwd()     // Bad: I/O     raw, _ := ioutil.ReadFile(         path.Join(cwd, "config", "config.yaml"),     )     yaml.Unmarshal(raw, &_config) }` | `type Config struct {     // ... } func loadConfig() Config {     cwd, err := os.Getwd()     // handle err     raw, err := ioutil.ReadFile(         path.Join(cwd, "config", "config.yaml"),     )     // handle err     var config Config     yaml.Unmarshal(raw, &config)     return config }` |
+
+
+```go
+// Bad
+
+type Config struct {
+    // ...
+}
+
+var _config Config
+
+func init() {
+    // Bad: based on current directory
+    cwd, _ := os.Getwd()
+
+    // Bad: I/O
+    raw, _ := ioutil.ReadFile(
+        path.Join(cwd, "config", "config.yaml"),
+    )
+
+    yaml.Unmarshal(raw, &_config)
+}
+
+// Good
+type Config struct {
+    // ...
+}
+
+func loadConfig() Config {
+    cwd, err := os.Getwd()
+    // handle err
+
+    raw, err := ioutil.ReadFile(
+        path.Join(cwd, "config", "config.yaml"),
+    )
+    // handle err
+
+    var config Config
+    yaml.Unmarshal(raw, &config)
+
+    return config
+}
+```
 
 
 
@@ -817,12 +1401,68 @@ Option是一种模式，您可以在其中声明一个不透明 Option 类型，
 
 将此模式用于您需要扩展的构造函数和其他公共 API 中的可选参数，尤其是在这些功能上已经具有三个或更多参数的情况下。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `// package db func Open(  addr string,  cache bool,  logger *zap.Logger ) (*Connection, error) {  // ... }` | `// package db type Option interface {  // ... } func WithCache(c bool) Option {  // ... } func WithLogger(log *zap.Logger) Option {  // ... } // Open creates a connection. func Open(  addr string,  opts ...Option, ) (*Connection, error) {  // ... }` |
-| 必须始终提供缓存和记录器参数，即使用户希望使用默认值。`db.Open(addr, db.DefaultCache, zap.NewNop()) db.Open(addr, db.DefaultCache, log) db.Open(addr, false /* cache */, zap.NewNop()) db.Open(addr, false /* cache */, log)` | 只有在需要时才提供选项。`db.Open(addr) db.Open(addr, db.WithLogger(log)) db.Open(addr, db.WithCache(false)) db.Open(  addr,  db.WithCache(false),  db.WithLogger(log), )` |
+```go
+// Bad
 
-Our suggested way of implementing this pattern is with an `Option` interface that holds an unexported method, recording options on an unexported `options` struct.
+// package db
+
+func Open(
+  addr string,
+  cache bool,
+  logger *zap.Logger
+) (*Connection, error) {
+  // ...
+}
+
+
+// Good
+
+// package db
+
+type Option interface {
+  // ...
+}
+
+func WithCache(c bool) Option {
+  // ...
+}
+
+func WithLogger(log *zap.Logger) Option {
+  // ...
+}
+
+// Open creates a connection.
+func Open(
+  addr string,
+  opts ...Option,
+) (*Connection, error) {
+  // ...
+}
+```
+
+
+
+```go
+// Bad
+// 必须始终提供缓存和记录器参数，即使用户希望使用默认值
+db.Open(addr, db.DefaultCache, zap.NewNop())
+db.Open(addr, db.DefaultCache, log)
+db.Open(addr, false /* cache */, zap.NewNop())
+db.Open(addr, false /* cache */, log)
+
+// Good
+// 只在需要时才提供选项
+
+db.Open(addr)
+db.Open(addr, db.WithLogger(log))
+db.Open(addr, db.WithCache(false))
+db.Open(
+  addr,
+  db.WithCache(false),
+  db.WithLogger(log),
+)
+
+```
 
 我们建议实现此模式的方法是使用一个 `Option` 接口，该接口保存一个未导出的方法，在一个未导出的 `options` 结构上记录选项。
 
@@ -885,8 +1525,6 @@ func Open(
 
 
 
-
-
 #### 2.2 性能相关
 
 ##### 2.2.1 优先使用 strconv 而不是 fmt
@@ -923,10 +1561,25 @@ make(map[T1]T2, hint)
 
 注意，与slices不同。map capacity提示并不保证完全的抢占式分配，而是用于估计所需的hashmap bucket的数量。 因此，在将元素添加到map时，甚至在指定map容量时，仍可能发生分配。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `m := make(map[string]os.FileInfo) files, _ := ioutil.ReadDir("./files") for _, f := range files {    m[f.Name()] = f }` | `files, _ := ioutil.ReadDir("./files") m := make(map[string]os.FileInfo, len(files)) for _, f := range files {    m[f.Name()] = f }` |
-| `m` 是在没有大小提示的情况下创建的； 在运行时可能会有更多分配。 | `m` 是有大小提示创建的；在运行时可能会有更少的分配。         |
+```go
+// Bad
+// m是在没有大小提示的情况下创建的； 在运行时会有资源占用
+m := make(map[string]os.FileInfo)
+
+files, _ := ioutil.ReadDir("./files")
+for _, f := range files {
+    m[f.Name()] = f
+}
+
+// Good
+// m是有大小提示创建的；在运行时占用更少的资源。实际开发中不要忽视err。
+files, _ := ioutil.ReadDir("./files")
+
+m := make(map[string]os.FileInfo, len(files))
+for _, f := range files {
+    m[f.Name()] = f
+}
+```
 
 * 指定切片容量
 
@@ -938,43 +1591,32 @@ make([]T, length, capacity)
 
 与maps不同，slice capacity不是一个提示：编译器将为提供给`make()`的slice的容量分配足够的内存， 这意味着后续的append()`操作将导致零分配（直到slice的长度与容量匹配，在此之后，任何append都可能调整大小以容纳其他元素）。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `for n := 0; n < b.N; n++ {  data := make([]int, 0)  for k := 0; k < size; k++{    data = append(data, k)  } }` | `for n := 0; n < b.N; n++ {  data := make([]int, 0, size)  for k := 0; k < size; k++{    data = append(data, k)  } }` |
-| `BenchmarkBad-4    100000000    2.48s `                      | `BenchmarkGood-4   100000000    0.21s`                       |
-
-* interface的初始化
-
-在编译时验证接口的符合性。这包括：
-
-1) 将实现特定接口的导出类型作为接口API 的一部分进行检查
-
-2) 实现同一接口的(导出和非导出)类型属于实现类型的集合
-
-3) 任何违反接口合理性检查的场景,都会终止编译,并通知给用户
-
-补充:上面3条是编译器对接口的检查机制, 大体意思是错误使用接口会在编译期报错. 所以可以利用这个机制让部分问题在编译期暴露.
-
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `// 如果Handler没有实现http.Handler,会在运行时报错 type Handler struct {  // ... } func (h *Handler) ServeHTTP(  w http.ResponseWriter,  r *http.Request, ) {  ... }` | `type Handler struct {  // ... } // 用于触发编译期的接口的合理性检查机制 // 如果Handler没有实现http.Handler,会在编译期报错 var _ http.Handler = (*Handler)(nil) func (h *Handler) ServeHTTP(  w http.ResponseWriter,  r *http.Request, ) {  // ... }` |
-
-如果 `*Handler` 与 `http.Handler` 的接口不匹配, 那么语句 `var _ http.Handler = (*Handler)(nil)` 将无法编译通过.
 
 
+```go
+// Bad
+// BenchmarkBad-4    100000000    2.48s 
+for n := 0; n < b.N; n++ {
+  data := make([]int, 0)
+  for k := 0; k < size; k++{
+    data = append(data, k)
+  }
+}
 
-##### 2.2.4 追加时优先指定切片容量
+// Good
+// BenchmarkGood-4   100000000    0.21s
+for n := 0; n < b.N; n++ {
+  data := make([]int, 0, size)
+  for k := 0; k < size; k++{
+    data = append(data, k)
+  }
+}
 
-追加时优先指定切片容量
+```
 
-在尽可能的情况下，在初始化要追加的切片时为`make()`提供一个容量值。
 
-| Bad                                                          | Good                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `for n := 0; n < b.N; n++ {  data := make([]int, 0)  for k := 0; k < size; k++{    data = append(data, k)  } }` | `for n := 0; n < b.N; n++ {  data := make([]int, 0, size)  for k := 0; k < size; k++{    data = append(data, k)  } }` |
-| `BenchmarkBad-4    100000000    2.48s `                      | `BenchmarkGood-4   100000000    0.21s `                      |
 
-##### 2.2.5 使用sync.Pool
+##### 2.2.4 使用sync.Pool
 
 Go 语言从 1.3 版本开始提供了对象重用的机制，即 sync.Pool。sync.Pool 是可伸缩的，同时也是并发安全的，其大小仅受限于内存的大小。sync.Pool 用于存储那些被分配了但是没有被使用，而未来可能会使用的值。这样就可以不用再次经过内存分配，可直接复用已有对象，减轻 GC 的压力，从而提升系统的性能。
 
@@ -1043,9 +1685,60 @@ BenchmarkBuffer-8             906572   1299 ns/op   10240 B/op   1 allocs/op
 
 
 
-2.2.6 
+##### 2.2.5 使用atomic代替锁
+
+开发中经常要使用锁来保证一致性，锁的性能不高，在某些场景下使用atomic代替。
+
+```go
+package main
+
+import (
+	"sync/atomic"
+	"time"
+)
+
+func loadConfig() map[string]string {
+	return make(map[string]string)
+}
+
+func requests() chan int {
+	return make(chan int)
+}
+
+func main() {
+	var config atomic.Value // holds current server configuration
+	// Create initial config value and store into config.
+	config.Store(loadConfig())
+	go func() {
+		// Reload config every 10 seconds
+		// and update config value with the new version.
+		for {
+			time.Sleep(10 * time.Second)
+			config.Store(loadConfig())
+		}
+	}()
+	// Create worker goroutines that handle incoming requests
+	// using the latest config value.
+	for i := 0; i < 10; i++ {
+		go func() {
+			for r := range requests() {
+				c := config.Load()
+				// Handle request r using config c.
+				_, _ = r, c
+			}
+		}()
+	}
+}
+
+```
 
 
+
+##### 2.2.6 使用worker-pool
+
+很多场景下，golang可以支持千万级的协程数量，但某些场景下，我们需要控制协程数据又要保证高效处理业务，这个时候一般使用worker-pool。worker-pool需要做好任务分发机制和多协程间的同步。
+
+可参考：https://github.com/bytedance/gopkg/tree/develop/util/gopool
 
 
 
